@@ -64,10 +64,14 @@ def stack_videos_vertically(video1_path, video2_path, output_path, ffmpeg_path):
     frame_count = 0
     while True:
         ret1, frame1 = cap1.read()
-        ret2, frame2 = cap2.read()
         
-        if not ret1 or not ret2:
+        if not ret1:
             break
+        
+        ret2, frame2 = cap2.read()
+        if not ret2:
+            cap2.set(cv2.CAP_PROP_POS_FRAMES, 0)  # Reinicia o segundo vídeo
+            ret2, frame2 = cap2.read()
         
         frame2 = resize_frame(frame2, target_width, target_height)
         combined_frame = np.vstack((frame1, frame2))
