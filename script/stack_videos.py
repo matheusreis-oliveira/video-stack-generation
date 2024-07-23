@@ -46,16 +46,10 @@ def stack_videos_vertically(video1_path, video2_path, output_path, ffmpeg_path):
     height2 = int(cap2.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps2 = cap2.get(cv2.CAP_PROP_FPS)
     
-    target_width = min(width1, width2)
-    target_height = min(height1, height2)
+    target_width = width1
+    target_height = height1
     target_fps = min(fps1, fps2)
     
-    if width1 != target_width or height1 != target_height:
-        temp1_path = video1_path.replace('.mp4', '_temp.mp4')
-        adjust_fps(video1_path, target_fps, temp1_path)
-        cap1.release()
-        cap1 = cv2.VideoCapture(video1_path)
-
     if width2 != target_width or height2 != target_height:
         temp2_path = video2_path.replace('.mp4', '_temp.mp4')
         adjust_fps(video2_path, target_fps, temp2_path)
@@ -75,7 +69,6 @@ def stack_videos_vertically(video1_path, video2_path, output_path, ffmpeg_path):
         if not ret1 or not ret2:
             break
         
-        frame1 = resize_frame(frame1, target_width, target_height)
         frame2 = resize_frame(frame2, target_width, target_height)
         combined_frame = np.vstack((frame1, frame2))
         out.write(combined_frame)
@@ -88,14 +81,19 @@ def stack_videos_vertically(video1_path, video2_path, output_path, ffmpeg_path):
     cap2.release()
     out.release()
     
-    # Adicionar o áudio do primeiro vídeo (video1_path) ao vídeo combinado
-    final_output_path = output_path
-    subprocess.run([ffmpeg_path, '-i', temp_output_path, '-i', video1_path, '-c', 'copy', '-map', '0:v:0', '-map', '1:a:0', final_output_path])
-    os.remove(temp_output_path)
+    # Verificar se o primeiro vídeo tem áudio
+    has_audio = subprocess.run([ffmpeg_path, '-i', video1_path, '-hide_banner'], capture_output=True, text=True).stderr
+    if "Stream #0:1" in has_audio or "Audio" in has_audio:
+        # Adicionar o áudio do primeiro vídeo (video1_path) ao vídeo combinado
+        final_output_path = output_path
+        subprocess.run([ffmpeg_path, '-i', temp_output_path, '-i', video1_path, '-c', 'copy', '-map', '0:v:0', '-map', '1:a:0?', final_output_path])
+        os.remove(temp_output_path)
+    else:
+        os.rename(temp_output_path, output_path)
     
     end_time = time.time()
     elapsed_time = end_time - start_time
-    print(f"Vídeo combinado processado com sucesso: {final_output_path} em {elapsed_time:.2f} segundos")
+    print(f"Vídeo combinado processado com sucesso: {output_path} em {elapsed_time:.2f} segundos")
     return elapsed_time
 
 def get_unique_output_path(output_path):
